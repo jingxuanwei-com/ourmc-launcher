@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>oml - 我们的世界启动器</title>
+    <base href="/" />
+    <link href="css/app.css" rel="stylesheet" />
+    <style>
+        /* 预加载样式 - 避免闪烁 */
+        html, body, #app {
+            background: transparent;
+            color: transparent;
+        }
+        
+        /* 加载时的占位样式，确保不显示文字 */
+        #app {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <script src="_framework/blazor.webview.js"></script>
+    <script>
+        // 全局 DotNet 引用
+        window._omlDotNetRef = null;
+ 
+        // 初始化窗口拖拽
+        window.initWindowDrag = function (dotNetRef) {
+            window._omlDotNetRef = dotNetRef;
+            var header = document.querySelector('.topbar');
+            if (!header) return;
+ 
+            var isDragging = false;
+            var startX = 0, startY = 0;
+ 
+            header.addEventListener('mousedown', function (e) {
+                if (e.target.closest('button')) return;
+                isDragging = true;
+                startX = e.screenX;
+                startY = e.screenY;
+                e.preventDefault();
+            });
+ 
+            document.addEventListener('mousemove', function (e) {
+                if (!isDragging) return;
+                var dx = e.screenX - startX;
+                var dy = e.screenY - startY;
+                startX = e.screenX;
+                startY = e.screenY;
+                if (dx !== 0 || dy !== 0) {
+                    dotNetRef.invokeMethodAsync('DragWindow', dx, dy);
+                }
+            });
+ 
+            document.addEventListener('mouseup', function () {
+                isDragging = false;
+            });
+        };
+ 
+        // 按钮操作
+        window.omlMinimize = function () {
+            if (window._omlDotNetRef) {
+                try {
+                    window._omlDotNetRef.invokeMethodAsync('MinimizeWindow');
+                    return;
+                } catch(e) {}
+            }
+        };
+ 
+        window.omlClose = function () {
+            if (window._omlDotNetRef) {
+                try {
+                    window._omlDotNetRef.invokeMethodAsync('CloseWindow');
+                    return;
+                } catch(e) {}
+            }
+            // 兜底：直接通过 Blazor WebView 查找并关闭
+            try {
+                var dotNetRefs = document.querySelectorAll('[data-dotnet-ref]');
+                // 最后手段：通知原生层关闭
+                window.external && window.external.sendMessage && window.external.sendMessage('close');
+            } catch(e2) {}
+        };
+ 
+        window.omlSwitchTab = function (tabIndex) {
+            if (window._omlDotNetRef) {
+                window._omlDotNetRef.invokeMethodAsync('SwitchTab', tabIndex);
+            }
+        };
+ 
+        window.omlLogin = function () {
+            if (!window._omlDotNetRef) return;
+            var email = document.getElementById('login-email').value;
+            var password = document.getElementById('login-password').value;
+            window._omlDotNetRef.invokeMethodAsync('Login', email, password);
+        };
+ 
+        // Toast 通知系统
+        window.omlNotify = function (type, message, duration) {
+            duration = duration || 3000;
+            var container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                document.body.appendChild(container);
+            }
+ 
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            container.appendChild(toast);
+ 
+            setTimeout(function () {
+                toast.classList.add('toast-out');
+                setTimeout(function () {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, duration);
+        };
+    </script>
+</body>
+</html>

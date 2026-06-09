@@ -1,0 +1,178 @@
+@* 下载页面组件 *@
+@using ourmclauncher.Models
+
+@if (ShowDownloadSetup)
+{
+    <div class="page-modal page-download-setup @(IsClosing ? "closing" : "")">
+        <div class="modal-header">
+            <div class="panel-title-bar">
+                <span class="panel-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                        <polyline points="7,10 12,15 17,10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                </span>
+                <h2>安装游戏</h2>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>版本名称</label>
+                <input type="text" @bind="InstallVersionName" placeholder="输入要安装的版本号" />
+            </div>
+            <div class="form-group">
+                <label>模组加载器</label>
+                <div class="loader-options">
+                    @if (InstallLoaderType == "vanilla")
+                    {
+                        <label class="loader-option">
+                            <input type="radio" name="loaderType" @onchange="OnVanillaSelected" checked="checked" />
+                            <span>原版</span>
+                        </label>
+                    }
+                    else
+                    {
+                        <label class="loader-option">
+                            <input type="radio" name="loaderType" @onchange="OnVanillaSelected" />
+                            <span>原版</span>
+                        </label>
+                    }
+                    @if (InstallLoaderType == "forge")
+                    {
+                        <label class="loader-option">
+                            <input type="radio" name="loaderType" @onchange="OnForgeSelected" checked="checked" />
+                            <span>Forge</span>
+                        </label>
+                    }
+                    else
+                    {
+                        <label class="loader-option">
+                            <input type="radio" name="loaderType" @onchange="OnForgeSelected" />
+                            <span>Forge</span>
+                        </label>
+                    }
+                    @if (InstallLoaderType == "fabric")
+                    {
+                        <label class="loader-option">
+                            <input type="radio" name="loaderType" @onchange="OnFabricSelected" checked="checked" />
+                            <span>Fabric</span>
+                        </label>
+                    }
+                    else
+                    {
+                        <label class="loader-option">
+                            <input type="radio" name="loaderType" @onchange="OnFabricSelected" />
+                            <span>Fabric</span>
+                        </label>
+                    }
+                </div>
+            </div>
+            <div class="setup-actions">
+                <button class="btn-primary" @onclick="OnStartInstall">开始安装</button>
+                <button class="btn-secondary" @onclick="OnCancelInstall">取消</button>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="page-modal page-download @(IsClosing ? "closing" : "")">
+        <div class="modal-header">
+            <div class="panel-title-bar">
+                <span class="panel-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                        <polyline points="7,10 12,15 17,10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                </span>
+                <h2>下载游戏</h2>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div class="download-search">
+                <input type="text" @bind="VersionSearchQuery" @bind:event="oninput" placeholder="搜索版本..." />
+            </div>
+            <div class="download-tabs">
+                <button class="download-tab @(DownloadFilter == "release" ? "download-tab-active" : "")" @onclick='() => OnFilterChanged.InvokeAsync("release")'>正式版</button>
+                <button class="download-tab @(DownloadFilter == "snapshot" ? "download-tab-active" : "")" @onclick='() => OnFilterChanged.InvokeAsync("snapshot")'>快照</button>
+            </div>
+            @if (IsDownloading)
+            {
+                <div class="download-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: @DownloadProgress%"></div>
+                    </div>
+                    <div class="progress-text">@DownloadStatus</div>
+                </div>
+            }
+            <div class="download-list">
+                @if (IsLoading)
+                {
+                    <p class="loading">加载远程版本列表...</p>
+                }
+                else
+                {
+                    var filtered = RemoteVersions
+                        .Where(v => DownloadFilter == "release" ? v.Type == "release" : v.Type != "release")
+                        .Where(v => string.IsNullOrEmpty(VersionSearchQuery) || v.Id.Contains(VersionSearchQuery, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    @foreach (var rv in filtered)
+                    {
+                        <div class="download-item">
+                            <div class="download-version-info">
+                                <div class="download-version-name">@rv.Id</div>
+                                <div class="download-version-type">@(rv.Type == "release" ? "正式版" : "快照")</div>
+                            </div>
+                            @if (InstalledVersions.Any(v => v.Name == rv.Id))
+                            {
+                                <span class="badge-installed">已安装</span>
+                            }
+                            else
+                            {
+                                <button class="btn-install" @onclick="() => OnInstall.InvokeAsync(rv.Id)">安装</button>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public List<RemoteVersion> RemoteVersions { get; set; } = new();
+    [Parameter] public List<GameVersion> InstalledVersions { get; set; } = new();
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public bool IsDownloading { get; set; }
+    [Parameter] public int DownloadProgress { get; set; }
+    [Parameter] public string DownloadStatus { get; set; } = "";
+    [Parameter] public bool ShowDownloadSetup { get; set; }
+    [Parameter] public string InstallVersionName { get; set; } = "";
+    [Parameter] public string InstallLoaderType { get; set; } = "vanilla";
+    [Parameter] public string DownloadFilter { get; set; } = "release";
+    [Parameter] public string VersionSearchQuery { get; set; } = "";
+    [Parameter] public bool IsClosing { get; set; }
+    [Parameter] public EventCallback<string> OnSearchQueryChanged { get; set; }
+    [Parameter] public EventCallback<string> OnFilterChanged { get; set; }
+    [Parameter] public EventCallback<string> OnInstall { get; set; }
+    [Parameter] public EventCallback OnCancelInstall { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnStartInstall { get; set; }
+
+    private void OnVanillaSelected(ChangeEventArgs e)
+    {
+        InstallLoaderType = "vanilla";
+    }
+
+    private void OnForgeSelected(ChangeEventArgs e)
+    {
+        InstallLoaderType = "forge";
+    }
+
+    private void OnFabricSelected(ChangeEventArgs e)
+    {
+        InstallLoaderType = "fabric";
+    }
+}

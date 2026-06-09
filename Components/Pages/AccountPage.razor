@@ -1,0 +1,85 @@
+@* 账户页面组件 - 使用 Blazor @bind 替代 JS eval *@
+<div class="page-modal page-account @(IsClosing ? "closing" : "")">
+    <div class="modal-header">
+        <div class="panel-title-bar">
+            <span class="panel-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            </span>
+            <h2>账户</h2>
+        </div>
+    </div>
+    <div class="modal-body">
+        @if (IsLoggedIn)
+        {
+            <div class="account-logged-in">
+                <div class="account-avatar-large" @onclick="OnManageSkin" style="cursor:pointer">
+                    <img src="@AvatarUrl" alt="头像" />
+                </div>
+                <h3 class="account-name">@Nickname</h3>
+                <p class="account-email">@UserEmail</p>
+                <div class="account-actions">
+                    <button class="btn-outline btn-sm" @onclick="OnManageSkin">管理皮肤</button>
+                    <button class="btn-danger btn-sm" @onclick="OnLogout">退出登录</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="account-login">
+                <h2>登录账户</h2>
+                <div class="form-group">
+                    <label>邮箱 / 用户名</label>
+                    <input type="text" @bind="loginEmail" @bind:event="oninput" placeholder="请输入邮箱或用户名" />
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" @bind="loginPassword" @bind:event="oninput" placeholder="请输入密码" />
+                </div>
+                @if (!string.IsNullOrEmpty(loginError))
+                {
+                    <p class="login-error" style="color: #ff6b6b; margin-top: 8px;">@loginError</p>
+                }
+                <button class="btn-primary btn-login" @onclick="HandleLogin" disabled="@(isLoggingIn)">
+                    @(isLoggingIn ? "登录中..." : "登录")
+                </button>
+                <p class="login-register">
+                    还没有账号？<a href="https://skin.our-mc.cn/register" target="_blank">立即注册</a>
+                </p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsLoggedIn { get; set; }
+    [Parameter] public string Nickname { get; set; } = "未登录";
+    [Parameter] public string UserEmail { get; set; } = "";
+    [Parameter] public string AvatarUrl { get; set; } = "";
+    [Parameter] public bool IsClosing { get; set; }
+    [Parameter] public EventCallback<(string email, string password)> OnLogin { get; set; }
+    [Parameter] public EventCallback OnLogout { get; set; }
+    [Parameter] public EventCallback OnManageSkin { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string loginEmail = "";
+    private string loginPassword = "";
+    private string loginError = "";
+    private bool isLoggingIn = false;
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(loginEmail) || string.IsNullOrWhiteSpace(loginPassword))
+        {
+            loginError = "请输入邮箱和密码";
+            return;
+        }
+
+        loginError = "";
+        isLoggingIn = true;
+        await OnLogin.InvokeAsync((loginEmail, loginPassword));
+        isLoggingIn = false;
+    }
+}

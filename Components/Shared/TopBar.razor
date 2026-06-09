@@ -1,0 +1,35 @@
+@* 顶部栏组件 - 窗口控制和拖拽区域 *@
+@inject WindowService WindowService
+@inject IJSRuntime JS
+
+<div class="topbar @(IsHomePage ? "" : "topbar-overlay")">
+    <div class="drag-area"></div>
+    <div class="topbar-right">
+        <button class="topbar-btn btn-minimize" @onclick="MinimizeWindow" title="最小化">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        </button>
+        <button class="topbar-btn btn-close" @onclick="CloseWindow" title="关闭">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public bool IsHomePage { get; set; } = true;
+
+    private void MinimizeWindow()
+    {
+        WindowService.Minimize();
+    }
+
+    private void CloseWindow()
+    {
+        WindowService.Close();
+    }
+}

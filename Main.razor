@@ -1,0 +1,396 @@
+@using ourmclauncher.Services
+@using ourmclauncher.Components.Shared
+@using ourmclauncher.Components.Pages
+@using Microsoft.JSInterop
+@inject AppState AppState
+@inject NotificationService NotificationService
+@inject WindowService WindowService
+@inject SkinService SkinService
+@inject DownloadService DownloadService
+@inject VersionService VersionService
+@inject LaunchService LaunchService
+@inject SettingsService SettingsService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="main-container">
+    <div class="main-body">
+        <Sidebar ActiveTab="AppState.ActiveTab" OnTabChanged="SwitchTab" />
+        
+        <div class="content-area">
+            <TopBar IsHomePage="@(AppState.ActiveTab == 0)" />
+            
+            <div class="content-body">
+                @if (AppState.ActiveTab == 0)
+                {
+                    <HomePage 
+                        Versions="AppState.Versions"
+                        OnServerList="OpenOfficialSite"
+                        OnWorldList="OpenOfficialSite"
+                        OnMultiplayer="OpenOfficialSite"
+                        OnLaunchVersion="LaunchVersion"
+                        OnQuickServer="@QuickServerClick" />
+                }
+                else if (AppState.ActiveTab == 2)
+                {
+                    <HomePage 
+                        Versions="AppState.Versions"
+                        OnServerList="OpenOfficialSite"
+                        OnWorldList="OpenOfficialSite"
+                        OnMultiplayer="OpenOfficialSite"
+                        OnLaunchVersion="LaunchVersion"
+                        OnQuickServer="@QuickServerClick" />
+
+                    <div class="account-popup-overlay" @onclick="() => SwitchTab(0)">
+                        <div class="account-popup" @onclick:stopPropagation="true">
+                            <AccountPage 
+                                IsLoggedIn="AppState.IsLoggedIn"
+                                Nickname="AppState.Nickname"
+                                UserEmail="AppState.UserEmail"
+                                AvatarUrl="AppState.AvatarUrl"
+                                IsClosing="AppState.IsAnimating"
+                                OnLogin="HandleLogin"
+                                OnLogout="Logout"
+                                OnManageSkin="OnManageSkin"
+                                OnClose="() => SwitchTab(0)" />
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="page-content @(AppState.IsAnimating && AppState.PreviousTab == 0 ? "closing" : "")">
+                        @switch (AppState.ActiveTab)
+                        {
+                            case 1:
+                                <DownloadsPage 
+                                    RemoteVersions="AppState.RemoteVersions"
+                                    InstalledVersions="AppState.Versions"
+                                    IsLoading="AppState.IsLoadingRemoteVersions"
+                                    IsDownloading="AppState.IsDownloading"
+                                    DownloadProgress="AppState.DownloadProgress"
+                                    DownloadStatus="AppState.DownloadStatus"
+                                    ShowDownloadSetup="AppState.ShowDownloadSetup"
+                                    InstallVersionName="AppState.InstallVersionName"
+                                    InstallLoaderType="AppState.InstallLoaderType"
+                                    DownloadFilter="AppState.DownloadFilter"
+                                    VersionSearchQuery="AppState.VersionSearchQuery"
+                                    IsClosing="AppState.IsAnimating"
+                                    OnFilterChanged="OnFilterChanged"
+                                    OnInstall="StartInstallWithName"
+                                    OnCancelInstall="CancelInstall"
+                                    OnClose="() => SwitchTab(0)"
+                                    OnStartInstall="StartInstall" />
+                                break;
+                            case 3:
+                                <SettingsPage 
+                                    JavaPath="AppState.JavaPath"
+                                    MaxMemory="AppState.MaxMemory"
+                                    GameDirectory="AppState.GameDirectory"
+                                    PlayerName="AppState.PlayerName"
+                                    IsClosing="AppState.IsAnimating"
+                                    OnAutoDetectJava="AutoDetectJava"
+                                    OnSaveSettings="SaveSettings"
+                                    OnClose="() => SwitchTab(0)" />
+                                break;
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast 容器 -->
+<div id="toast-container"></div>
+
+@code {
+    private DotNetObjectReference<Main>? _dotNetRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.OnChange += StateHasChanged;
+        
+        var settings = SettingsService.GetAllSettings();
+        AppState.LoadSettings(settings);
+        AppState.AvatarUrl = SkinService.GetDefaultAvatarUrl(120);
+        
+        await LoadUserInfoAsync();
+        RefreshVersions();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("initWindowDrag", _dotNetRef);
+        }
+    }
+
+    [JSInvokable("DragWindow")]
+    public void DragWindow(int deltaX, int deltaY)
+    {
+        WindowService.Drag(deltaX, deltaY);
+    }
+
+    [JSInvokable("SwitchTab")]
+    public void SwitchTabFromJS(int tabIndex)
+    {
+        SwitchTab(tabIndex);
+    }
+
+    private async Task SwitchTab(int tabIndex)
+    {
+        if (AppState.IsAnimating || AppState.ActiveTab == tabIndex) return;
+
+        AppState.PreviousTab = AppState.ActiveTab;
+
+        if (tabIndex != 0 && AppState.ActiveTab == 0)
+        {
+            AppState.IsAnimating = true;
+            AppState.ActiveTab = tabIndex;
+            if (tabIndex == 1 && AppState.RemoteVersions.Count == 0)
+                _ = LoadRemoteVersionsAsync();
+            StateHasChanged();
+            await Task.Delay(350);
+            AppState.IsAnimating = false;
+        }
+        else if (tabIndex == 0 && AppState.ActiveTab != 0)
+        {
+            AppState.IsAnimating = true;
+            StateHasChanged();
+            await Task.Delay(250);
+            AppState.ActiveTab = 0;
+            AppState.IsAnimating = false;
+            StateHasChanged();
+        }
+        else
+        {
+            AppState.ActiveTab = tabIndex;
+            if (tabIndex == 1 && AppState.RemoteVersions.Count == 0)
+                _ = LoadRemoteVersionsAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task QuickServerClick()
+    {
+        await NotificationService.Info("快捷启动服务器功能", 2000);
+    }
+
+    private void OpenOfficialSite()
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://www.our-mc.cn") { UseShellExecute = true }); }
+        catch { }
+    }
+
+    private void OnManageSkin()
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(AppState.IsLoggedIn ? "https://skin.our-mc.cn/user" : "https://skin.our-mc.cn/") { UseShellExecute = true }); } 
+        catch { }
+    }
+
+    private void LoadSettings()
+    {
+        var s = SettingsService.GetAllSettings();
+        AppState.JavaPath = s.JavaPath;
+        AppState.MaxMemory = s.MaxMemory;
+        AppState.GameDirectory = s.GameDirectory;
+        AppState.PlayerName = s.PlayerName;
+    }
+
+    private async Task SaveSettings()
+    {
+        if (!string.IsNullOrEmpty(AppState.JavaPath)) SettingsService.SetJavaPath(AppState.JavaPath);
+        SettingsService.SetMaxMemory(AppState.MaxMemory);
+        if (!string.IsNullOrEmpty(AppState.GameDirectory)) SettingsService.SetGameDirectory(AppState.GameDirectory);
+        SettingsService.SetPlayerName(AppState.PlayerName);
+        await NotificationService.Success("保存成功！", 2000);
+    }
+
+    private async Task AutoDetectJava()
+    {
+        var detected = LaunchService.AutoDetectJava();
+        if (!string.IsNullOrEmpty(detected))
+        {
+            AppState.JavaPath = detected;
+            StateHasChanged();
+            await NotificationService.Success($"已检测到Java: {detected}", 3000);
+        }
+        else
+        {
+            await NotificationService.Warning("未检测到Java，请手动配置", 3000);
+        }
+    }
+
+    private async Task LoadUserInfoAsync()
+    {
+        try
+        {
+            var isLoggedIn = await SkinService.CheckLoginStatusAsync();
+            if (isLoggedIn)
+            {
+                var userInfo = await SkinService.GetUserInfoAsync();
+                if (userInfo != null)
+                {
+                    var avatarUrl = !string.IsNullOrEmpty(userInfo.Avatar) ? userInfo.Avatar
+                        : !string.IsNullOrEmpty(userInfo.Username) ? SkinService.GetAvatarUrl(userInfo.Username)
+                        : SkinService.GetDefaultAvatarUrl(120);
+                    AppState.SetLoggedInState(true, userInfo, avatarUrl);
+                }
+                else
+                {
+                    AppState.SetLoggedInState(false, null, SkinService.GetDefaultAvatarUrl(120));
+                }
+            }
+            else
+            {
+                AppState.SetLoggedInState(false, null, SkinService.GetDefaultAvatarUrl(120));
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"加载用户信息失败: {ex.Message}");
+            AppState.SetLoggedInState(false, null, SkinService.GetDefaultAvatarUrl(120));
+        }
+    }
+
+    private void Logout()
+    {
+        SkinService.Logout();
+        AppState.SetLoggedInState(false, null, SkinService.GetDefaultAvatarUrl(120));
+    }
+
+    private async Task HandleLogin((string email, string password) loginData)
+    {
+        try
+        {
+            var result = await SkinService.LoginAsync(loginData.email, loginData.password);
+            if (result.Success && result.User != null)
+            {
+                var avatarUrl = !string.IsNullOrEmpty(result.User.Avatar) ? result.User.Avatar
+                    : !string.IsNullOrEmpty(result.User.Username) ? SkinService.GetAvatarUrl(result.User.Username)
+                    : SkinService.GetDefaultAvatarUrl(120);
+                AppState.SetLoggedInState(true, result.User, avatarUrl);
+                await NotificationService.Success("登录成功！", 2000);
+            }
+            else
+            {
+                await NotificationService.Error(result.Message ?? "登录失败", 3000);
+            }
+        }
+        catch (Exception ex)
+        {
+            await NotificationService.Error($"网络错误: {ex.Message}", 3000);
+        }
+    }
+
+    private void RefreshVersions()
+    {
+        AppState.IsLoadingVersions = true;
+        StateHasChanged();
+        try
+        {
+            VersionService.ScanInstalledVersions();
+            AppState.Versions.Clear();
+            AppState.Versions.AddRange(VersionService.GetVersions());
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"刷新版本失败: {ex.Message}");
+        }
+        AppState.IsLoadingVersions = false;
+        StateHasChanged();
+    }
+
+    private async Task LaunchVersion(string versionName)
+    {
+        if (string.IsNullOrEmpty(versionName)) return;
+
+        var selectedPlayerName = AppState.IsLoggedIn && !string.IsNullOrEmpty(AppState.Nickname) ? AppState.Nickname : AppState.PlayerName;
+
+        await NotificationService.Success($"正在启动 {versionName}", 2000);
+
+        LaunchService.OnLaunchOutput += (msg) => { };
+        LaunchService.OnLaunchError += (msg) => { NotificationService.Error(msg, 3000); };
+
+        LaunchService.Launch(versionName, selectedPlayerName, AppState.MaxMemory);
+    }
+
+    private async Task LoadRemoteVersionsAsync()
+    {
+        AppState.IsLoadingRemoteVersions = true;
+        StateHasChanged();
+        try
+        {
+            var versions = await DownloadService.GetVersionManifestAsync();
+            AppState.RemoteVersions.Clear();
+            AppState.RemoteVersions.AddRange(versions);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"加载远程版本失败: {ex.Message}");
+        }
+        AppState.IsLoadingRemoteVersions = false;
+        StateHasChanged();
+    }
+
+    private void StartInstallWithName(string name)
+    {
+        AppState.InstallVersionName = name;
+        AppState.ShowDownloadSetup = true;
+        StateHasChanged();
+    }
+
+    private async Task StartInstall()
+    {
+        if (string.IsNullOrWhiteSpace(AppState.InstallVersionName))
+        {
+            await NotificationService.Warning("请输入版本名称", 3000);
+            return;
+        }
+
+        AppState.ShowDownloadSetup = false;
+        AppState.IsDownloading = true;
+        AppState.DownloadProgress = 0;
+        AppState.DownloadStatus = "准备下载...";
+        StateHasChanged();
+
+        var progress = new Progress<(int progress, string status)>(p =>
+        {
+            AppState.DownloadProgress = p.progress;
+            AppState.DownloadStatus = p.status;
+            StateHasChanged();
+        });
+
+        var success = await DownloadService.DownloadVersionAsync(AppState.InstallVersionName, progress);
+
+        AppState.IsLoadingRemoteVersions = false;
+        if (success)
+        {
+            await NotificationService.Success($"{AppState.InstallVersionName} 下载完成！", 3000);
+            RefreshVersions();
+        }
+        StateHasChanged();
+    }
+
+    private void CancelInstall()
+    {
+        AppState.ShowDownloadSetup = false;
+        DownloadService.CancelDownload();
+        StateHasChanged();
+    }
+
+    private async Task OnFilterChanged(string filter)
+    {
+        AppState.DownloadFilter = filter;
+        StateHasChanged();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        AppState.OnChange -= StateHasChanged;
+        _dotNetRef?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}
