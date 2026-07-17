@@ -1,9 +1,9 @@
-name: 构建发布
+name: 发布
 
 on:
-  push: # 任意分支提交都触发
-  pull_request:
-  workflow_dispatch: # 手动触发
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build:
@@ -24,24 +24,22 @@ jobs:
       - name: 发布（单文件自包含）
         run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -o ./publish
 
-      - name: 上传构建产物
-        uses: actions/upload-artifact@v4
+      - name: 创建 Release（原始 exe）
+        uses: ncipollo/release-action@v1
         with:
-          name: ourmclauncher.exe
-          path: ./publish/ourmclauncher.exe
-
-      - name: 创建 Release（仅打标签时触发）
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ./publish/ourmclauncher.exe
-          generate_release_notes: true
+          tag: ${{ github.ref_name }}
+          artifacts: "./publish/ourmclauncher.exe"
+          generateReleaseNotes: true
           body: |
             ## OML Launcher ${{ github.ref_name }}
 
             ### 使用说明
             下载 `ourmclauncher.exe`，双击运行即可。
             已内置 .NET 8 运行时 + WebView2 原生库，无需额外安装。
+
+            ### 系统要求
+            - Windows 10/11 64位
+            - Java 8+（启动游戏需要）
 
             ### 系统要求
             - Windows 10/11 64位
