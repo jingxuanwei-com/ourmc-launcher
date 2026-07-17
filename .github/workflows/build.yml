@@ -18,17 +18,11 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: 安装 WebView2 Runtime
-        run: |
-          curl -L -o WebView2Setup.exe "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
-          Start-Process -Wait -FilePath .\WebView2Setup.exe -ArgumentList "/silent /install"
-
       - name: 还原依赖
         run: dotnet restore
 
       - name: 发布（单文件自包含）
-        run: |
-          dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ./publish
+        run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
