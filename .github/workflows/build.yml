@@ -22,7 +22,7 @@ jobs:
         run: dotnet restore
 
       - name: 发布（单文件自包含）
-        run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
+        run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -o ./publish
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
@@ -41,9 +41,8 @@ jobs:
 
             ### 使用说明
             下载 `ourmclauncher.exe`，双击运行即可。
-            已内置 .NET 8 运行时，无需额外安装。
+            已内置 .NET 8 运行时 + WebView2 原生库，无需额外安装。
 
             ### 系统要求
             - Windows 10/11 64位
-            - 系统已安装 WebView2 Runtime（Win11 自带，Win10 通常已预装）
             - Java 8+（启动游戏需要）

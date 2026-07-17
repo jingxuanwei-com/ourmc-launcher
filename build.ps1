@@ -35,7 +35,7 @@ Write-Host ""
 
 # Step 3: 发布项目
 Write-Host "[3/4] 发布项目 (Release, win-x64, 自包含)..." -ForegroundColor Yellow
-dotnet publish -c Release -r win-x64 --self-contained -o ./publish
+dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -o ./publish
 if ($LASTEXITCODE -ne 0) { throw "发布失败" }
 Write-Host "      ✓ 发布完成" -ForegroundColor Green
 Write-Host ""
@@ -51,9 +51,7 @@ if (-not (Test-Path $exePath)) {
 $releaseDir = "release"
 if (-not (Test-Path $releaseDir)) { New-Item -ItemType Directory -Path $releaseDir | Out-Null }
 
-# 复制整个 publish 目录到 release
-if (Test-Path $releaseDir) { Remove-Item -Recurse -Force "$releaseDir\*" }
-Copy-Item "publish\*" $releaseDir -Recurse -Force
+Copy-Item $exePath (Join-Path $releaseDir "ourmclauncher.exe") -Force
 
 @"
 OML Launcher - 我们的世界启动器
@@ -62,15 +60,12 @@ OML Launcher - 我们的世界启动器
 构建日期: $(Get-Date -Format "yyyy-MM-dd HH:mm")
 
 使用说明:
-  1. 解压整个文件夹
-  2. 双击 ourmclauncher.exe 启动
-
-注意: 请确保整个文件夹完整，不要只复制 exe 文件，
-      WebView2 原生 DLL 必须和 exe 放在同一目录。
+  双击 ourmclauncher.exe 即可启动。
+  已内置 .NET 8 运行时，无需额外安装。
 
 系统要求:
   - Windows 10/11 64位
-  - WebView2 Runtime（Win11 自带）
+  - WebView2 Runtime（Win11 自带，Win10 通常已预装）
   - 4GB+ RAM
   - Java 8+（启动游戏需要）
 
