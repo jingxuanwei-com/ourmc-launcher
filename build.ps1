@@ -92,3 +92,4 @@ $open = Read-Host "打开 release 目录？(Y/N)"
 if ($open -eq "Y" -or $open -eq "y") {
     Invoke-Item $releaseDir
 }
+
