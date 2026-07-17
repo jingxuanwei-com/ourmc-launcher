@@ -4,7 +4,6 @@ on:
   push:
     branches: ["*"]
     paths-ignore:
-      - ".github/**"
       - "**.md"
   release:
     types: [published]
@@ -53,7 +52,7 @@ jobs:
   release:
     name: 发布 Release
     needs: [build]
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'test')
+    if: github.event.inputs.release_type != 'test'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -81,8 +80,6 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.version_override }}" ]; then
             echo "tag=${{ github.event.inputs.version_override }}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ github.event.release.tag_name }}" ]; then
-            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=$(date +'%Y%m%d%H%M%S')" >> "$GITHUB_OUTPUT"
           fi
@@ -108,10 +105,3 @@ jobs:
           files: |
             ./release-artifacts/ourmclauncher.exe
             ./release-artifacts/checksums.txt
-
-      - name: 上传 Release 资产（已发布 Release）
-        if: github.event_name == 'release'
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" ./release-artifacts/ourmclauncher.exe ./release-artifacts/checksums.txt --repo "${{ github.repository }}" --clobber
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
