@@ -21,8 +21,7 @@ jobs:
       - name: 安装 WebView2 Runtime
         run: |
           curl -L -o WebView2Setup.exe "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
-          .\WebView2Setup.exe /silent /install
-          Remove-Item WebView2Setup.exe
+          Start-Process -Wait -FilePath .\WebView2Setup.exe -ArgumentList "/silent /install"
 
       - name: 还原依赖
         run: dotnet restore
