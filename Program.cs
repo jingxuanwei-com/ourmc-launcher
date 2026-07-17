@@ -52,7 +52,7 @@ internal static class Program
         var blazor = new BlazorWebView
         {
             Dock = DockStyle.Fill,
-            HostPage = "wwwroot\\index.html",
+            HostPage = Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html"),
             Services = services.BuildServiceProvider()
         };
 
