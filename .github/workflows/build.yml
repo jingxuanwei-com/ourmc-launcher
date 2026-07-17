@@ -41,6 +41,7 @@ jobs:
         with:
           tag: ${{ github.ref_name }}
           artifacts: "./publish/ourmclauncher.exe"
+          skipIfReleaseExists: true
           generateReleaseNotes: true
           body: |
             ## OML Launcher ${{ github.ref_name }}
