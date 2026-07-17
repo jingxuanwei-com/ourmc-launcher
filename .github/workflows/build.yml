@@ -26,6 +26,12 @@ jobs:
       - name: 发布（单文件自包含）
         run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -o ./publish
 
+      - name: 上传构建产物（每次 push 都可下载）
+        uses: actions/upload-artifact@v4
+        with:
+          name: ourmclauncher-${{ github.sha }}
+          path: ./publish/ourmclauncher.exe
+
       - name: 创建 Release（原始 exe，仅标签触发）
         if: github.ref_type == 'tag'
         uses: ncipollo/release-action@v1
