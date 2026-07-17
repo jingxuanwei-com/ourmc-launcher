@@ -21,4 +21,13 @@
     <None Remove="tests\**\*" />
   </ItemGroup>
 
+  <!--
+    将 wwwroot 从默认 Content 改为 EmbeddedResource，启动时自解压，
+    确保单文件发布也能正确加载 Blazor WebView 的静态文件。
+  -->
+  <ItemGroup>
+    <Content Remove="wwwroot\**\*" />
+    <EmbeddedResource Include="wwwroot\**\*" LogicalName="WWWROOT\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

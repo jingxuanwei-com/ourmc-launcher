@@ -82,11 +82,10 @@ Write-Host "  构建成功！" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "输出文件:" -ForegroundColor White
-Write-Host "  EXE:     release\ourmclauncher.exe" -ForegroundColor White
-Write-Host "  DLL 等:  release\ 目录下" -ForegroundColor White
-Write-Host "  README:  release\README.txt" -ForegroundColor White
+Write-Host "  EXE:  release\ourmclauncher.exe（单文件，内置 .NET + 静态资源）" -ForegroundColor White
+Write-Host "  说明: release\README.txt" -ForegroundColor White
 Write-Host ""
-Write-Host "目录大小: $(Get-ChildItem $releaseDir -Recurse | Measure-Object -Property Length -Sum | ForEach-Object { '{0:N1} MB' -f ($_.Sum / 1MB) })" -ForegroundColor White
+Write-Host "文件大小: $('{0:N1} MB' -f ((Get-Item (Join-Path $releaseDir 'ourmclauncher.exe')).Length / 1MB))" -ForegroundColor White
 Write-Host ""
 
 $open = Read-Host "打开 release 目录？(Y/N)"
