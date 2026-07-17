@@ -1,11 +1,23 @@
 name: 构建与发布
 
 on:
-  push:  # 任何分支 push + 任何 v* 标签 push 都触发
-    tags:
-      - "v*"
-    branches:
-      - "**"
+  push:
+    branches: ["*"]
+    paths-ignore:
+      - ".github/**"
+      - "**.md"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "发布类型"
+        required: true
+        default: "test"
+        type: choice
+        options:
+          - test
+          - release
 
 permissions:
   contents: write
@@ -29,22 +41,48 @@ jobs:
       - name: 发布（单文件自包含）
         run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -o ./publish
 
-      - name: 上传构建产物（每次 push 都可下载）
+      - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: ourmclauncher.exe
           path: ./publish/ourmclauncher.exe
 
-      - name: 创建 Release（原始 exe，仅标签触发）
-        if: github.ref_type == 'tag'
-        uses: ncipollo/release-action@v1
+  release:
+    needs: [build]
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_type == 'release')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
         with:
-          tag: ${{ github.ref_name }}
-          artifacts: "./publish/ourmclauncher.exe"
-          skipIfReleaseExists: true
-          generateReleaseNotes: true
+          fetch-depth: 0
+
+      - name: 下载构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: ourmclauncher.exe
+          path: ./release-artifacts
+
+      - name: 确定版本号
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=$(date +'%Y%m%d%H%M%S')" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 创建 Release（手动触发）
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "OML Launcher ${{ steps.version.outputs.tag }}"
           body: |
-            ## OML Launcher ${{ github.ref_name }}
+            ## OML Launcher ${{ steps.version.outputs.tag }}
 
             ### 使用说明
             下载 `ourmclauncher.exe`，双击运行即可。
@@ -53,3 +91,13 @@ jobs:
             ### 系统要求
             - Windows 10/11 64位
             - Java 8+（启动游戏需要）
+          draft: false
+          prerelease: false
+          files: ./release-artifacts/ourmclauncher.exe
+
+      - name: 上传 Release 资产（GitHub Release 触发）
+        if: github.event_name == 'release'
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" ./release-artifacts/ourmclauncher.exe --repo "${{ github.repository }}" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
