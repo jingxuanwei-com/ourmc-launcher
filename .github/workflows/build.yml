@@ -18,6 +18,12 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: 安装 WebView2 Runtime
+        run: |
+          curl -L -o WebView2Setup.exe "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+          .\WebView2Setup.exe /silent /install
+          Remove-Item WebView2Setup.exe
+
       - name: 还原依赖
         run: dotnet restore
 
@@ -28,7 +34,7 @@ jobs:
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: ourmclauncher-win64
+          name: ourmclauncher.exe
           path: ./publish/ourmclauncher.exe
 
       - name: 创建 Release（仅打标签时触发）
@@ -37,14 +43,14 @@ jobs:
         with:
           files: ./publish/ourmclauncher.exe
           generate_release_notes: true
-          tag_name: ${{ github.ref_name }}
           body: |
             ## OML Launcher ${{ github.ref_name }}
 
             ### 使用说明
-            下载 `ourmclauncher.exe`，双击运行即可，无需安装 .NET 运行时。
+            下载 `ourmclauncher.exe`，双击运行即可。
+            已内置 .NET 8 运行时，无需额外安装。
 
             ### 系统要求
             - Windows 10/11 64位
-            - 4GB+ RAM
+            - 系统已安装 WebView2 Runtime（Win11 自带，Win10 通常已预装）
             - Java 8+（启动游戏需要）

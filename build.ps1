@@ -33,17 +33,16 @@ if ($LASTEXITCODE -ne 0) { throw "还原 NuGet 包失败" }
 Write-Host "      ✓ 依赖已还原" -ForegroundColor Green
 Write-Host ""
 
-# Step 3: 发布项目（单文件自包含）
-Write-Host "[3/4] 发布项目 (Release, win-x64, 单文件)..." -ForegroundColor Yellow
-dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
+# Step 3: 发布项目
+Write-Host "[3/4] 发布项目 (Release, win-x64, 自包含)..." -ForegroundColor Yellow
+dotnet publish -c Release -r win-x64 --self-contained -o ./publish
 if ($LASTEXITCODE -ne 0) { throw "发布失败" }
 Write-Host "      ✓ 发布完成" -ForegroundColor Green
 Write-Host ""
 
 # Step 4: 打包到 release/
 Write-Host "[4/4] 打包发布文件..." -ForegroundColor Yellow
-$publishDir = "bin\Release\net8.0-windows\win-x64\publish"
-$exePath = Join-Path $publishDir "ourmclauncher.exe"
+$exePath = "publish\ourmclauncher.exe"
 
 if (-not (Test-Path $exePath)) {
     throw "未找到输出文件: $exePath"
@@ -52,7 +51,9 @@ if (-not (Test-Path $exePath)) {
 $releaseDir = "release"
 if (-not (Test-Path $releaseDir)) { New-Item -ItemType Directory -Path $releaseDir | Out-Null }
 
-Copy-Item $exePath (Join-Path $releaseDir "ourmclauncher.exe") -Force
+# 复制整个 publish 目录到 release
+if (Test-Path $releaseDir) { Remove-Item -Recurse -Force "$releaseDir\*" }
+Copy-Item "publish\*" $releaseDir -Recurse -Force
 
 @"
 OML Launcher - 我们的世界启动器
@@ -61,12 +62,17 @@ OML Launcher - 我们的世界启动器
 构建日期: $(Get-Date -Format "yyyy-MM-dd HH:mm")
 
 使用说明:
-  双击 ourmclauncher.exe 即可启动，无需安装 .NET 运行时。
+  1. 解压整个文件夹
+  2. 双击 ourmclauncher.exe 启动
+
+注意: 请确保整个文件夹完整，不要只复制 exe 文件，
+      WebView2 原生 DLL 必须和 exe 放在同一目录。
 
 系统要求:
   - Windows 10/11 64位
+  - WebView2 Runtime（Win11 自带）
   - 4GB+ RAM
-  - Java 8+ (启动游戏需要)
+  - Java 8+（启动游戏需要）
 
 官网: https://www.our-mc.cn
 皮肤站: https://skin.our-mc.cn
@@ -82,9 +88,10 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "输出文件:" -ForegroundColor White
 Write-Host "  EXE:     release\ourmclauncher.exe" -ForegroundColor White
+Write-Host "  DLL 等:  release\ 目录下" -ForegroundColor White
 Write-Host "  README:  release\README.txt" -ForegroundColor White
 Write-Host ""
-Write-Host "文件大小: $(Get-Item $exePath | Select-Object -ExpandProperty Length | ForEach-Object { '{0:N1} MB' -f ($_ / 1MB) })" -ForegroundColor White
+Write-Host "目录大小: $(Get-ChildItem $releaseDir -Recurse | Measure-Object -Property Length -Sum | ForEach-Object { '{0:N1} MB' -f ($_.Sum / 1MB) })" -ForegroundColor White
 Write-Host ""
 
 $open = Read-Host "打开 release 目录？(Y/N)"
