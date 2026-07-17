@@ -28,20 +28,5 @@
             "cwd": "${workspaceFolder}",
             "console": "internalConsole",
             "stopAtEntry": false
-        },
-        {
-            "name": "调试并构建成品 (单文件 exe)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "publish-release (发布单文件)",
-            "program": "${workspaceFolder}/bin/Debug/net8.0-windows/ourmclauncher.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "console": "internalConsole",
-            "stopAtEntry": false,
-            "env": {
-                "DOTNET_ENVIRONMENT": "Development"
-            }
-        }
     ]
 }
