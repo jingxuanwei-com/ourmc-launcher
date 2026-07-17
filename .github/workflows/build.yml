@@ -1,9 +1,11 @@
-name: 发布
+name: 构建与发布
 
 on:
-  push:
+  push:  # 任何分支 push + 任何 v* 标签 push 都触发
     tags:
       - "v*"
+    branches:
+      - "**"
 
 jobs:
   build:
@@ -24,7 +26,8 @@ jobs:
       - name: 发布（单文件自包含）
         run: dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -o ./publish
 
-      - name: 创建 Release（原始 exe）
+      - name: 创建 Release（原始 exe，仅标签触发）
+        if: github.ref_type == 'tag'
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name }}
@@ -36,10 +39,6 @@ jobs:
             ### 使用说明
             下载 `ourmclauncher.exe`，双击运行即可。
             已内置 .NET 8 运行时 + WebView2 原生库，无需额外安装。
-
-            ### 系统要求
-            - Windows 10/11 64位
-            - Java 8+（启动游戏需要）
 
             ### 系统要求
             - Windows 10/11 64位
