@@ -17,17 +17,19 @@ on:
         type: choice
         options:
           - test
+          - prerelease
           - release
-
-permissions:
-  contents: write
+      version_override:
+        description: "自定义版本号（留空自动生成）"
+        required: false
+        type: string
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - name: 拉取代码
+      - name: 检出代码
         uses: actions/checkout@v4
 
       - name: 安装 .NET 8.0
@@ -46,15 +48,17 @@ jobs:
         with:
           name: ourmclauncher.exe
           path: ./publish/ourmclauncher.exe
+          if-no-files-found: error
 
   release:
+    name: 发布 Release
     needs: [build]
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_type == 'release')
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'test')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: 拉取代码
+      - name: 检出代码
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -65,13 +69,21 @@ jobs:
           name: ourmclauncher.exe
           path: ./release-artifacts
 
+      - name: 生成校验和
+        working-directory: ./release-artifacts
+        run: |
+          sha256sum ourmclauncher.exe > checksums.txt
+          cat checksums.txt
+
       - name: 确定版本号
         id: version
         shell: bash
         run: |
-          if [ -n "${{ github.event.release.tag_name }}" ]; then
+          if [ -n "${{ github.event.inputs.version_override }}" ]; then
+            echo "tag=${{ github.event.inputs.version_override }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.release.tag_name }}" ]; then
             echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          else
             echo "tag=$(date +'%Y%m%d%H%M%S')" >> "$GITHUB_OUTPUT"
           fi
 
@@ -92,12 +104,14 @@ jobs:
             - Windows 10/11 64位
             - Java 8+（启动游戏需要）
           draft: false
-          prerelease: false
-          files: ./release-artifacts/ourmclauncher.exe
+          prerelease: ${{ github.event.inputs.release_type == 'prerelease' }}
+          files: |
+            ./release-artifacts/ourmclauncher.exe
+            ./release-artifacts/checksums.txt
 
-      - name: 上传 Release 资产（GitHub Release 触发）
+      - name: 上传 Release 资产（已发布 Release）
         if: github.event_name == 'release'
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" ./release-artifacts/ourmclauncher.exe --repo "${{ github.repository }}" --clobber
+          gh release upload "${{ github.event.release.tag_name }}" ./release-artifacts/ourmclauncher.exe ./release-artifacts/checksums.txt --repo "${{ github.repository }}" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
